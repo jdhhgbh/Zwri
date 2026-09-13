@@ -29,16 +29,17 @@ def run():
         )
         page = context.new_page()
 
-        # الخطوة 1: الدخول المباشر إلى صفحة التجربة لتفادي الأزرار المضللة
+        # Step 1: الانتقال لصفحة تجربة الـ 24 ساعة
         page.goto("https://stormiptv.co/tv/", timeout=60000)
         page.click("text=Free Trial 24h")
 
-        # الخطوة 2: اختيار القوائم المنسدلة بأسلوب مرن
-        page.wait_for_selector("select", state="attached", timeout=60000)
+        # Step 2: ضبط القوائم المنسدلة
+        page.wait_for_selector("form", timeout=60000)
         time.sleep(2)
 
-        select_elements = page.locator("select").all()
-        for sel in select_elements:
+        # تحديد الخيارات في جميع القوائم المنسدلة الموجودة بالصفحة
+        selects = page.locator("select").all()
+        for sel in selects:
             try:
                 options = sel.locator("option").all()
                 if len(options) > 1:
@@ -47,26 +48,21 @@ def run():
             except Exception:
                 pass
 
-        # الضغط على زر Continue الأساسي بدقة بواسطة الـ ID الخاص به
-        primary_continue_btn = page.locator("#btnCompleteProductConfig")
-        if primary_continue_btn.count() > 0:
-            primary_continue_btn.click(force=True)
-        else:
-            page.locator("button.btn-primary:has-text('Continue')").first.click(
-                force=True
-            )
+        # إرسال نموذج إعدادات التجربة تلقائياً (تجاوز البحث عن الزر)
+        page.evaluate(
+            "document.querySelector('form').submit() ||"
+            " document.forms[0].submit()"
+        )
 
-        # الخطوة 3: صفحة Checkout
-        page.wait_for_selector(
-            "button:has-text('Checkout'), a:has-text('Checkout'), #checkout",
+        # Step 3: الانتقال إلى صفحة الـ Checkout
+        page.wait_for_timeout(3000)
+        page.goto(
+            "https://stormiptv.co/tv/cart.php?a=checkout",
+            wait_until="networkidle",
             timeout=60000,
         )
-        checkout_btn = page.locator(
-            "#checkout, button:has-text('Checkout'), a:has-text('Checkout')"
-        ).first
-        checkout_btn.click(force=True)
 
-        # الخطوة 4: تعبئة البيانات Personal Information
+        # Step 4: تعبئة البيانات الشخصية
         page.wait_for_selector(
             "input[name='firstname'], #inputFirstName", timeout=60000
         )
@@ -76,32 +72,33 @@ def run():
         page.fill("input[name='email'], #inputEmail", email)
         page.fill("input[name='phonenumber'], #inputPhone", phone_number)
 
-        # توليد كلمة السر
-        gen_btn = page.locator(
-            "#generatePasswordButton, .generate-password,"
-            " button:has-text('Generate Password')"
-        )
-        if gen_btn.is_visible():
-            gen_btn.first.click(force=True)
-            time.sleep(1)
-            use_btn = page.locator(
-                "#btnGeneratePasswordInsert, button:has-text('Use')"
-            )
-            if use_btn.is_visible():
-                use_btn.first.click(force=True)
-        else:
-            pwd = generate_random_string(10) + "A1!"
-            page.fill("input[name='password'], #inputNewPassword1", pwd)
-            page.fill(
-                "input[name='password_confirm'], #inputNewPassword2", pwd
-            )
+        # إنشاء وتعبئة كلمة المرور
+        pwd = generate_random_string(10) + "A1!"
+        pwd_inputs = page.locator(
+            "input[type='password'], input[name='password'],"
+            " #inputNewPassword1, #inputNewPassword2"
+        ).all()
+        for inp in pwd_inputs:
+            try:
+                inp.fill(pwd)
+            except Exception:
+                pass
 
-        # إتمام الطلب
-        complete_btn = page.locator(
-            "#btnCompleteOrder, button:has-text('Complete Order'),"
-            " input[value='Complete Order']"
+        # إتمام الطلب من خلال إرسال نموذج الدفع النهائي
+        time.sleep(1)
+        checkout_form = page.locator(
+            "form#frmCheckout, form[action*='checkout']"
         )
-        complete_btn.first.click(force=True)
+        if checkout_form.count() > 0:
+            page.evaluate(
+                "document.querySelector('form#frmCheckout').submit()"
+            )
+        else:
+            page.locator(
+                "#btnCompleteOrder, button:has-text('Complete Order'),"
+                " input[value='Complete Order']"
+            ).first.click(force=True)
+
         page.wait_for_timeout(5000)
 
         print(f"تم إرسال الطلب بنجاح للإيميل: {email}")
