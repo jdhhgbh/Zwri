@@ -13,7 +13,8 @@ def generate_random_string(length=5):
 def run():
     first_name = generate_random_string(6).capitalize()
     last_name = generate_random_string(6).capitalize()
-    email_tag = generate_random_string(4)
+    # تغيير طول العلامة العشوائية للإيميل من 4 إلى 6 حروف
+    email_tag = generate_random_string(6)
     email = f"zwri+{email_tag}@outlook.sa"
     phone_suffix = "".join(random.choices(string.digits, k=4))
     phone_number = f"205255{phone_suffix}"
@@ -42,34 +43,28 @@ def run():
         page.wait_for_selector("text=Free Trial 24h", timeout=60000)
         page.click("text=Free Trial 24h")
 
-        # الخطوة 2: اختيار القوائم المنسدلة بدون التعليق على القائمة العليا
+        # الخطوة 2: اختيار القوائم المنسدلة
         print("2. جاري ضبط الخيارات (Adult Channels & Account Type)...")
         page.wait_for_load_state("domcontentloaded")
         time.sleep(3)
 
-        # استهداف القوائم المنسدلة داخل نموذج المنتج وليس القوائم العامة
         product_selects = page.locator(
             "form select:not([onchange*='selectChangeNavigate'])"
         )
 
-        # في حال وجود خيارات محددة بالاسم أو استهداف عناصر النموذج
         if product_selects.count() >= 2:
             try:
-                # القناة الأولى (Adult Channels -> No)
                 product_selects.nth(0).select_option(label="No", force=True)
             except Exception:
-                # تجربة التحديد عبر Index بحال عدم تطابق الاسم
                 product_selects.nth(0).select_option(index=1, force=True)
 
             try:
-                # القناة الثانية (Account Type -> M3U & Xtream Code)
                 product_selects.nth(1).select_option(
                     label="M3U & Xtream Code", force=True
                 )
             except Exception:
                 product_selects.nth(1).select_option(index=1, force=True)
         else:
-            # طريقة احتياطية: التحديد على كافة خيارات المنسدلات بالنموذج
             all_form_selects = page.locator("form select").all()
             for sel in all_form_selects:
                 try:
@@ -79,7 +74,7 @@ def run():
                 except Exception:
                     pass
 
-        # الضغط على زر Continue الأسفل
+        # الضغط على Continue
         print("3. الضغط على Continue...")
         time.sleep(1)
         continue_btn = page.locator(
@@ -130,7 +125,7 @@ def run():
                 "input[name='password_confirm'], #inputNewPassword2", pwd
             )
 
-        # إتمام الطلب بالضغط على Complete Order
+        # إتمام الطلب
         print("6. إتمام الطلب...")
         time.sleep(2)
         complete_btn = page.locator(
