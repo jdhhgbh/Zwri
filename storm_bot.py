@@ -4,6 +4,7 @@ import time
 from playwright.sync_api import sync_playwright
 
 
+# توليد سلسلة عشوائية تتكون من حروف صغيرة وأرقام
 def generate_random_string(length=5):
     return "".join(
         random.choices(string.ascii_lowercase + string.digits, k=length)
@@ -13,7 +14,7 @@ def generate_random_string(length=5):
 def run():
     first_name = generate_random_string(6).capitalize()
     last_name = generate_random_string(6).capitalize()
-    # تغيير طول العلامة العشوائية للإيميل من 4 إلى 6 حروف
+    # 6 خانات تجمع بين الحروف والأرقام العشوائية بعد الزائد
     email_tag = generate_random_string(6)
     email = f"zwri+{email_tag}@outlook.sa"
     phone_suffix = "".join(random.choices(string.digits, k=4))
