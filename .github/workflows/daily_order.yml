@@ -1,0 +1,30 @@
+name: Daily IPTV Order Automation
+
+on:
+  schedule:
+    # 1:00 AM UTC يوافق 4:00 AM بتوقيت مكة
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-automation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies & Playwright Browsers
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright
+          playwright install chromium
+          playwright install-deps
+
+      - name: Execute Bot Script
+        run: python storm_bot.py
