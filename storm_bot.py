@@ -29,41 +29,41 @@ def run():
         )
         page = context.new_page()
 
-        # Step 1: الانتقال ورابط التجربة
+        # الخطوة 1: الدخول والدفع نحو الصفحة الرئيسية
         page.goto("https://stormiptv.co/tv/", timeout=60000)
         page.click("text=Free Trial 24h")
 
-        # Step 2: التعامل مع القوائم المنسدلة مع الانتظار الصريح
-        page.wait_for_selector(
-            "select", state="attached", timeout=60000
-        )  # زيادة المهلة لـ 60 ثانية
-        time.sleep(3)  # انتظار إضافي لضمان اكتمال تحميل عناصر DOM
+        # الخطوة 2: التعامل مع القوائم حتى لو كانت مخفية وتطبيق Force
+        page.wait_for_selector("select", state="attached", timeout=60000)
+        time.sleep(2)
 
-        # اختيار خيار القنوات الإباحية وتحديد M3U
-        selects = page.locator("select")
-        count = selects.count()
-
-        if count >= 2:
-            # استخدام الاختيار بالـ value أو Index لضمان عدم التعليق
-            selects.nth(0).select_option(index=1)
-            selects.nth(1).select_option(index=1)
+        # استهداف جميع القوائم المنسدلة والتحديد بالقوة
+        select_elements = page.locator("select").all()
+        for sel in select_elements:
+            try:
+                # اختيار الخيار الثاني (No / M3U) مع اجبار التحديد
+                options = sel.locator("option").all()
+                if len(options) > 1:
+                    val = options[1].get_attribute("value")
+                    sel.select_option(value=val, force=True)
+            except Exception:
+                pass
 
         # الضغط على زر Continue
-        continue_btn = page.locator(
+        page.locator(
             "#btnCompleteProductConfig, button:has-text('Continue'),"
             " a:has-text('Continue')"
-        )
-        continue_btn.first.click()
+        ).first.click(force=True)
 
-        # Step 3: صفحة Checkout
+        # الخطوة 3: صفحة Checkout
         page.wait_for_selector(
             "button:has-text('Checkout'), a:has-text('Checkout')", timeout=60000
         )
         page.locator(
             "button:has-text('Checkout'), a:has-text('Checkout')"
-        ).first.click()
+        ).first.click(force=True)
 
-        # Step 4: تعبئة البيانات
+        # الخطوة 4: تعبئة البيانات Personal Information
         page.wait_for_selector(
             "input[name='firstname'], #inputFirstName", timeout=60000
         )
@@ -79,13 +79,13 @@ def run():
             " button:has-text('Generate Password')"
         )
         if gen_btn.is_visible():
-            gen_btn.first.click()
+            gen_btn.first.click(force=True)
             time.sleep(1)
             use_btn = page.locator(
                 "#btnGeneratePasswordInsert, button:has-text('Use')"
             )
             if use_btn.is_visible():
-                use_btn.first.click()
+                use_btn.first.click(force=True)
         else:
             pwd = generate_random_string(10) + "A1!"
             page.fill("input[name='password'], #inputNewPassword1", pwd)
@@ -98,10 +98,10 @@ def run():
             "#btnCompleteOrder, button:has-text('Complete Order'),"
             " input[value='Complete Order']"
         )
-        complete_btn.first.click()
+        complete_btn.first.click(force=True)
         page.wait_for_timeout(5000)
 
-        print(f"تم تنفيذ الطلب بنجاح للإيميل: {email}")
+        print(f"تم إرسال الطلب بنجاح للإيميل: {email}")
         browser.close()
 
 
