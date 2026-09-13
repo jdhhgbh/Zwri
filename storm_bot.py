@@ -29,19 +29,17 @@ def run():
         )
         page = context.new_page()
 
-        # الخطوة 1: الدخول والدفع نحو الصفحة الرئيسية
+        # الخطوة 1: الدخول المباشر إلى صفحة التجربة لتفادي الأزرار المضللة
         page.goto("https://stormiptv.co/tv/", timeout=60000)
         page.click("text=Free Trial 24h")
 
-        # الخطوة 2: التعامل مع القوائم حتى لو كانت مخفية وتطبيق Force
+        # الخطوة 2: اختيار القوائم المنسدلة بأسلوب مرن
         page.wait_for_selector("select", state="attached", timeout=60000)
         time.sleep(2)
 
-        # استهداف جميع القوائم المنسدلة والتحديد بالقوة
         select_elements = page.locator("select").all()
         for sel in select_elements:
             try:
-                # اختيار الخيار الثاني (No / M3U) مع اجبار التحديد
                 options = sel.locator("option").all()
                 if len(options) > 1:
                     val = options[1].get_attribute("value")
@@ -49,19 +47,24 @@ def run():
             except Exception:
                 pass
 
-        # الضغط على زر Continue
-        page.locator(
-            "#btnCompleteProductConfig, button:has-text('Continue'),"
-            " a:has-text('Continue')"
-        ).first.click(force=True)
+        # الضغط على زر Continue الأساسي بدقة بواسطة الـ ID الخاص به
+        primary_continue_btn = page.locator("#btnCompleteProductConfig")
+        if primary_continue_btn.count() > 0:
+            primary_continue_btn.click(force=True)
+        else:
+            page.locator("button.btn-primary:has-text('Continue')").first.click(
+                force=True
+            )
 
         # الخطوة 3: صفحة Checkout
         page.wait_for_selector(
-            "button:has-text('Checkout'), a:has-text('Checkout')", timeout=60000
+            "button:has-text('Checkout'), a:has-text('Checkout'), #checkout",
+            timeout=60000,
         )
-        page.locator(
-            "button:has-text('Checkout'), a:has-text('Checkout')"
-        ).first.click(force=True)
+        checkout_btn = page.locator(
+            "#checkout, button:has-text('Checkout'), a:has-text('Checkout')"
+        ).first
+        checkout_btn.click(force=True)
 
         # الخطوة 4: تعبئة البيانات Personal Information
         page.wait_for_selector(
