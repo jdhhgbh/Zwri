@@ -19,7 +19,14 @@ def run():
     phone_number = f"205255{phone_suffix}"
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-blink-features=AutomationControlled",
+            ],
+        )
         context = browser.new_context(
             user_agent=(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
@@ -30,45 +37,80 @@ def run():
         page = context.new_page()
 
         # الخطوة 1: الدخول وضغط Free Trial 24h
+        print("1. جاري فتح الموقع...")
         page.goto("https://stormiptv.co/tv/", timeout=60000)
+        page.wait_for_selector("text=Free Trial 24h", timeout=60000)
         page.click("text=Free Trial 24h")
 
-        # الخطوة 2: ضبط القوائم المنسدلة (Adult Channels: No, Account Type: M3U)
-        page.wait_for_selector("select", timeout=60000)
-        time.sleep(2)
+        # الخطوة 2: اختيار القوائم المنسدلة بدون التعليق على القائمة العليا
+        print("2. جاري ضبط الخيارات (Adult Channels & Account Type)...")
+        page.wait_for_load_state("domcontentloaded")
+        time.sleep(3)
 
-        selects = page.locator("select").all()
-        for sel in selects:
+        # استهداف القوائم المنسدلة داخل نموذج المنتج وليس القوائم العامة
+        product_selects = page.locator(
+            "form select:not([onchange*='selectChangeNavigate'])"
+        )
+
+        # في حال وجود خيارات محددة بالاسم أو استهداف عناصر النموذج
+        if product_selects.count() >= 2:
             try:
-                options = sel.locator("option").all()
-                if len(options) > 1:
-                    val = options[1].get_attribute("value")
-                    sel.select_option(value=val, force=True)
+                # القناة الأولى (Adult Channels -> No)
+                product_selects.nth(0).select_option(label="No", force=True)
             except Exception:
-                pass
+                # تجربة التحديد عبر Index بحال عدم تطابق الاسم
+                product_selects.nth(0).select_option(index=1, force=True)
 
-        # الضغط على زر Continue الأساسي في أسفل نموذج المنتجات
+            try:
+                # القناة الثانية (Account Type -> M3U & Xtream Code)
+                product_selects.nth(1).select_option(
+                    label="M3U & Xtream Code", force=True
+                )
+            except Exception:
+                product_selects.nth(1).select_option(index=1, force=True)
+        else:
+            # طريقة احتياطية: التحديد على كافة خيارات المنسدلات بالنموذج
+            all_form_selects = page.locator("form select").all()
+            for sel in all_form_selects:
+                try:
+                    options = sel.locator("option").all()
+                    if len(options) > 1:
+                        sel.select_option(index=1, force=True)
+                except Exception:
+                    pass
+
+        # الضغط على زر Continue الأسفل
+        print("3. الضغط على Continue...")
         time.sleep(1)
         continue_btn = page.locator(
-            "button[type='submit']:has-text('Continue'),"
-            " button:has-text('Continue'), .btn-primary:has-text('Continue')"
+            "#btnCompleteProductConfig, button[type='submit']:has-text('Continue'),"
+            " button:has-text('Continue')"
         ).first
         continue_btn.click(force=True)
 
-        # الخطوة 3: صفحة السلة والضغط على Checkout
-        page.wait_for_selector("a:has-text('Checkout'), button:has-text('Checkout')", timeout=60000)
+        # الخطوة 3: صفحة Checkout
+        print("4. الانتقال لصفحة Checkout...")
+        page.wait_for_selector(
+            "a:has-text('Checkout'), button:has-text('Checkout'), #checkout",
+            timeout=60000,
+        )
         time.sleep(1)
-        page.locator("a:has-text('Checkout'), button:has-text('Checkout')").first.click(force=True)
+        page.locator(
+            "a:has-text('Checkout'), button:has-text('Checkout'), #checkout"
+        ).first.click(force=True)
 
-        # الخطوة 4: تعبئة البيانات الشخصية (Personal Information)
-        page.wait_for_selector("input[name='firstname'], #inputFirstName", timeout=60000)
+        # الخطوة 4: تعبئة البيانات Personal Information
+        print("5. تعبئة بيانات الحساب...")
+        page.wait_for_selector(
+            "input[name='firstname'], #inputFirstName", timeout=60000
+        )
 
         page.fill("input[name='firstname'], #inputFirstName", first_name)
         page.fill("input[name='lastname'], #inputLastName", last_name)
         page.fill("input[name='email'], #inputEmail", email)
         page.fill("input[name='phonenumber'], #inputPhone", phone_number)
 
-        # توليد كلمة المرور بالضغط على زر Generate Password
+        # توليد كلمة السر
         gen_btn = page.locator(
             "#generatePasswordButton, .generate-password,"
             " button:has-text('Generate Password')"
@@ -82,21 +124,23 @@ def run():
             if use_btn.count() > 0 and use_btn.first.is_visible():
                 use_btn.first.click(force=True)
         else:
-            # كلمة مرور بديلة بحال عدم ظهور النافذة
             pwd = generate_random_string(10) + "A1!"
             page.fill("input[name='password'], #inputNewPassword1", pwd)
-            page.fill("input[name='password_confirm'], #inputNewPassword2", pwd)
+            page.fill(
+                "input[name='password_confirm'], #inputNewPassword2", pwd
+            )
 
         # إتمام الطلب بالضغط على Complete Order
+        print("6. إتمام الطلب...")
         time.sleep(2)
         complete_btn = page.locator(
             "#btnCompleteOrder, button:has-text('Complete Order'),"
             " input[value='Complete Order']"
         ).first
         complete_btn.click(force=True)
-        
+
         page.wait_for_timeout(5000)
-        print(f"تم إرسال الطلب بنجاح للإيميل: {email}")
+        print(f"✅ تم إرسال الطلب بنجاح للإيميل: {email}")
         browser.close()
 
 
