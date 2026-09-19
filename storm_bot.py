@@ -4,7 +4,7 @@ import time
 from playwright.sync_api import sync_playwright
 
 
-# توليد سلسلة عشوائية تتكون من حروف صغيرة وأرقام
+# توليد سلسلة عشوائية من حروف وأرقام
 def generate_random_string(length=5):
     return "".join(
         random.choices(string.ascii_lowercase + string.digits, k=length)
@@ -14,7 +14,7 @@ def generate_random_string(length=5):
 def run():
     first_name = generate_random_string(6).capitalize()
     last_name = generate_random_string(6).capitalize()
-    # 6 خانات تجمع بين الحروف والأرقام العشوائية بعد الزائد
+    # 6 خانات عشوائية بعد العلامة
     email_tag = generate_random_string(6)
     email = f"zwri+{email_tag}@outlook.sa"
     phone_suffix = "".join(random.choices(string.digits, k=4))
@@ -44,8 +44,8 @@ def run():
         page.wait_for_selector("text=Free Trial 24h", timeout=60000)
         page.click("text=Free Trial 24h")
 
-        # الخطوة 2: اختيار القوائم المنسدلة (منع القنوات الإباحية بصرامة)
-        print("2. جاري ضبط الخيارات (إلغاء القنوات الإباحية & M3U)...")
+        # الخطوة 2: اختيار None لحذف باقة القنوات تماماً
+        print("2. جاري اختيار None لإلغاء القنوات الإباحية نهائياً...")
         page.wait_for_load_state("domcontentloaded")
         time.sleep(3)
 
@@ -53,20 +53,20 @@ def run():
             "form select:not([onchange*='selectChangeNavigate'])"
         )
 
+        # 1. اختيار None من قائمة Adult Channels
         if product_selects.count() >= 1:
-            # 1. ضبط خيار Adult Channels على No بشكل صريح
             try:
-                # المحاولة بكلمة No أو الخيار الأول
-                product_selects.nth(0).select_option(label="No", force=True)
+                # محاولة اختيار None بالنص المباشر
+                product_selects.nth(0).select_option(label="None", force=True)
             except Exception:
                 try:
-                    product_selects.nth(0).select_option(value="No", force=True)
+                    product_selects.nth(0).select_option(value="None", force=True)
                 except Exception:
-                    # اختيار أول عنصر دائماً (عادة يكون No / Disabled)
+                    # الخيار الأول في القائمة المنسدلة هو None (Index 0)
                     product_selects.nth(0).select_option(index=0, force=True)
 
+        # 2. اختيار M3U & Xtream Code من القائمة الثانية
         if product_selects.count() >= 2:
-            # 2. ضبط نوع الحساب على M3U & Xtream Code
             try:
                 product_selects.nth(1).select_option(
                     label="M3U & Xtream Code", force=True
