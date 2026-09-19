@@ -1,87 +1,22 @@
 import random
 import string
 import time
-import re
-import requests
 from playwright.sync_api import sync_playwright
 
 
-# توليد اسم/معرف عشوائي للإيميل المؤقت
-def generate_random_string(length=8):
+# توليد سلسلة عشوائية من حروف وأرقام
+def generate_random_string(length=5):
     return "".join(
         random.choices(string.ascii_lowercase + string.digits, k=length)
     )
 
 
-# دالة لإنشاء بريد مؤقت وسحب الرسائل منه عبر 1secmail API
-def get_temp_email():
-    username = generate_random_string(10)
-    domain = "1secmail.com"  # النطاقات المتاحة: 1secmail.com, 1secmail.org, 1secmail.net
-    email = f"{username}@{domain}"
-    return username, domain, email
-
-
-def fetch_m3u_from_temp_email(username, domain, max_retries=15, delay=10):
-    print(f"📧 جاري الانتظار وفحص صندوق الوارد للبريد: {username}@{domain}...")
-
-    for i in range(max_retries):
-        try:
-            # استعلام الـ API لمعرفة الرسائل القادمة
-            url = f"https://www.1secmail.com/api/v1/?action=getMessages&login={username}&domain={domain}"
-            response = requests.get(url, timeout=10)
-            if response.status_code == 200:
-                messages = response.json()
-
-                for msg in messages:
-                    msg_id = msg.get("id")
-                    # جلب تفاصيل الرسالة كاملة
-                    msg_url = f"https://www.1secmail.com/api/v1/?action=readMessage&login={username}&domain={domain}&id={msg_id}"
-                    msg_res = requests.get(msg_url, timeout=10)
-
-                    if msg_res.status_code == 200:
-                        msg_data = msg_res.json()
-                        body = msg_data.get("body", "") + msg_data.get(
-                            "textBody", ""
-                        )
-
-                        # البحث عن رابط M3U داخل محتوى الرسالة باستعمال Regex
-                        m3u_match = re.search(
-                            r'https?://[^\s<>"]+?\.m3u8?', body
-                        ) or re.search(
-                            r'https?://[^\s<>"]+type=m3u[^\s<>"]*', body
-                        )
-
-                        if m3u_match:
-                            m3u_url = m3u_match.group(0)
-                            print(
-                                f"\n✨ ========================================"
-                            )
-                            print(f"🎯 تم العثور على رابط M3U بنجاح!")
-                            print(f"🔗 الرابط: {m3u_url}")
-                            print(
-                                f"========================================\n"
-                            )
-                            return m3u_url
-        except Exception as e:
-            print(f"حدث خطأ أثناء فحص البريد: {e}")
-
-        print(
-            f"محاولة ({i+1}/{max_retries}) - لم تصل الرسالة بعد، الانتظار {delay} ثوانٍ..."
-        )
-        time.sleep(delay)
-
-    print("❌ لم يتم العثور على رابط M3U في البريد المؤقت.")
-    return None
-
-
 def run():
     first_name = generate_random_string(6).capitalize()
     last_name = generate_random_string(6).capitalize()
-
-    # إنشاء البريد المؤقت
-    email_user, email_domain, email = get_temp_email()
-    print(f"📧 البريد المؤقت المستخدم للطلب: {email}")
-
+    # 6 خانات عشوائية بعد العلامة
+    email_tag = generate_random_string(6)
+    email = f"zwri+{email_tag}@outlook.sa"
     phone_suffix = "".join(random.choices(string.digits, k=4))
     phone_number = f"205255{phone_suffix}"
 
@@ -121,13 +56,13 @@ def run():
         # 1. اختيار None من قائمة Adult Channels
         if product_selects.count() >= 1:
             try:
+                # محاولة اختيار None بالنص المباشر
                 product_selects.nth(0).select_option(label="None", force=True)
             except Exception:
                 try:
-                    product_selects.nth(0).select_option(
-                        value="None", force=True
-                    )
+                    product_selects.nth(0).select_option(value="None", force=True)
                 except Exception:
+                    # الخيار الأول في القائمة المنسدلة هو None (Index 0)
                     product_selects.nth(0).select_option(index=0, force=True)
 
         # 2. اختيار M3U & Xtream Code من القائمة الثانية
@@ -202,10 +137,6 @@ def run():
         page.wait_for_timeout(5000)
         print(f"✅ تم إرسال الطلب بنجاح للإيميل: {email}")
         browser.close()
-
-    # البحث عن الرابط في البريد المؤقت بعد الإرسال
-    m3u_link = fetch_m3u_from_temp_email(email_user, email_domain)
-    return m3u_link
 
 
 if __name__ == "__main__":
