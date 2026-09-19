@@ -14,7 +14,7 @@ def generate_random_string(length=5):
 def run():
     first_name = generate_random_string(6).capitalize()
     last_name = generate_random_string(6).capitalize()
-    # 6 خانات عشوائية (حروف وأرقام) بعد الزائد
+    # 6 خانات تجمع بين الحروف والأرقام العشوائية بعد الزائد
     email_tag = generate_random_string(6)
     email = f"zwri+{email_tag}@outlook.sa"
     phone_suffix = "".join(random.choices(string.digits, k=4))
@@ -44,8 +44,8 @@ def run():
         page.wait_for_selector("text=Free Trial 24h", timeout=60000)
         page.click("text=Free Trial 24h")
 
-        # الخطوة 2: اختيار القوائم المنسدلة بناءً على الواجهة المحددة
-        print("2. جاري اختيار No للقنوات الإباحية و ضبط Account Type...")
+        # الخطوة 2: اختيار القوائم المنسدلة (منع القنوات الإباحية بصرامة)
+        print("2. جاري ضبط الخيارات (إلغاء القنوات الإباحية & M3U)...")
         page.wait_for_load_state("domcontentloaded")
         time.sleep(3)
 
@@ -53,26 +53,26 @@ def run():
             "form select:not([onchange*='selectChangeNavigate'])"
         )
 
-        # القائمة الأولى: Adult Channels -> اختيار الخيار الثاني (No)
         if product_selects.count() >= 1:
+            # 1. ضبط خيار Adult Channels على No بشكل صريح
             try:
+                # المحاولة بكلمة No أو الخيار الأول
                 product_selects.nth(0).select_option(label="No", force=True)
             except Exception:
-                product_selects.nth(0).select_option(index=1, force=True)
+                try:
+                    product_selects.nth(0).select_option(value="No", force=True)
+                except Exception:
+                    # اختيار أول عنصر دائماً (عادة يكون No / Disabled)
+                    product_selects.nth(0).select_option(index=0, force=True)
 
-        # القائمة الثانية: Account Type -> اختيار M3U & Xtream Code
         if product_selects.count() >= 2:
+            # 2. ضبط نوع الحساب على M3U & Xtream Code
             try:
                 product_selects.nth(1).select_option(
                     label="M3U & Xtream Code", force=True
                 )
             except Exception:
-                # إذا كانت القائمة تحتوي على خيار آخر بالمنتصف
-                options = product_selects.nth(1).locator("option").all()
-                if len(options) > 1:
-                    product_selects.nth(1).select_option(
-                        index=len(options) - 1, force=True
-                    )
+                product_selects.nth(1).select_option(index=1, force=True)
 
         # الضغط على Continue
         print("3. الضغط على Continue...")
