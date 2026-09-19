@@ -1,8 +1,12 @@
+import os
 import random
 import string
 import time
+import re
+import imaplib
+import email
+from email.header import decode_header
 from playwright.sync_api import sync_playwright
-
 
 # توليد سلسلة عشوائية من حروف وأرقام
 def generate_random_string(length=5):
@@ -10,13 +14,80 @@ def generate_random_string(length=5):
         random.choices(string.ascii_lowercase + string.digits, k=length)
     )
 
+def fetch_m3u_link_from_email(target_email, max_retries=12, delay=10):
+    """
+    الاتصال بـ Outlook عبر IMAP وقراءة رابط M3U
+    """
+    outlook_user = os.getenv("OUTLOOK_USER")
+    outlook_pass = os.getenv("OUTLOOK_PASS")
+
+    if not outlook_user or not outlook_pass:
+        print("⚠️ لم يتم ضبط OUTLOOK_USER أو OUTLOOK_PASS في Secrets.")
+        return None
+
+    print(f"📧 جاري الانتظار للتحقق من وصول الرسالة إلى {target_email}...")
+
+    # الانتظار حتى تصل الرسالة (يحاول لمدة دقيقتين تقريباً)
+    for i in range(max_retries):
+        try:
+            # الاتصال بـ Outlook IMAP
+            mail = imaplib.IMAP4_SSL("outlook.office365.com")
+            mail.login(outlook_user, outlook_pass)
+            mail.select("inbox")
+
+            # البحث عن جميع الرسائل
+            status, messages = mail.search(None, "ALL")
+            mail_ids = messages[0].split()
+
+            # فحص الرسائل من الأحدث للأقدم
+            for mail_id in reversed(mail_ids):
+                status, data = mail.fetch(mail_id, "(RFC822)")
+                for response_part in data:
+                    if isinstance(response_part, tuple):
+                        msg = email.message_from_bytes(response_part[1])
+                        
+                        # استخراج نص الرسالة
+                        body = ""
+                        if msg.is_multipart():
+                            for part in msg.walk():
+                                content_type = part.get_content_type()
+                                if content_type in ["text/plain", "text/html"]:
+                                    body += part.get_payload(decode=True).decode(errors="ignore")
+                        else:
+                            body = msg.get_payload(decode=True).decode(errors="ignore")
+
+                        # التأكد من أن الرسالة موجهة لهذا الإيميل المخصص (zwri+xxx@outlook.sa)
+                        if target_email.lower() in body.lower() or target_email.lower() in str(msg.get("To")).lower():
+                            # البحث عن رابط M3U باستعمال Regex
+                            m3u_match = re.search(r'https?://[^\s<>"]+?\.m3u8?', body) or re.search(r'https?://[^\s<>"]+type=m3u[^\s<>"]*', body)
+                            if m3u_match:
+                                m3u_url = m3u_match.group(0)
+                                print(f"🎯 تم العثور على رابط M3U بنجاح: {m3u_url}")
+                                mail.logout()
+                                return m3u_url
+
+            mail.logout()
+        except Exception as e:
+            print(f"حدث خطأ أثناء الاتصال بالبريد: {e}")
+
+        print(f"محاولة ({i+1}/{max_retries}) - لم تصل الرسالة بعد، الانتظار {delay} ثوانٍ...")
+        time.sleep(delay)
+
+    print("❌ لم يتم العثور على رابط M3U في الوقت المحدد.")
+    return None
 
 def run():
     first_name = generate_random_string(6).capitalize()
     last_name = generate_random_string(6).capitalize()
-    # 6 خانات عشوائية بعد العلامة
+    
+    # الاعتماد على عنوان البريد أو الجزء الأساسي منه
+    base_email = os.getenv("OUTLOOK_USER", "zwri@outlook.sa")
+    email_prefix = base_email.split("@")[0]
+    email_domain = base_email.split("@")[1] if "@" in base_email else "outlook.sa"
+    
     email_tag = generate_random_string(6)
-    email = f"zwri+{email_tag}@outlook.sa"
+    email = f"{email_prefix}+{email_tag}@{email_domain}"
+    
     phone_suffix = "".join(random.choices(string.digits, k=4))
     phone_number = f"205255{phone_suffix}"
 
@@ -38,13 +109,11 @@ def run():
         )
         page = context.new_page()
 
-        # الخطوة 1: الدخول وضغط Free Trial 24h
         print("1. جاري فتح الموقع...")
         page.goto("https://stormiptv.co/tv/", timeout=60000)
         page.wait_for_selector("text=Free Trial 24h", timeout=60000)
         page.click("text=Free Trial 24h")
 
-        # الخطوة 2: اختيار None لحذف باقة القنوات تماماً
         print("2. جاري اختيار None لإلغاء القنوات الإباحية نهائياً...")
         page.wait_for_load_state("domcontentloaded")
         time.sleep(3)
@@ -53,19 +122,15 @@ def run():
             "form select:not([onchange*='selectChangeNavigate'])"
         )
 
-        # 1. اختيار None من قائمة Adult Channels
         if product_selects.count() >= 1:
             try:
-                # محاولة اختيار None بالنص المباشر
                 product_selects.nth(0).select_option(label="None", force=True)
             except Exception:
                 try:
                     product_selects.nth(0).select_option(value="None", force=True)
                 except Exception:
-                    # الخيار الأول في القائمة المنسدلة هو None (Index 0)
                     product_selects.nth(0).select_option(index=0, force=True)
 
-        # 2. اختيار M3U & Xtream Code من القائمة الثانية
         if product_selects.count() >= 2:
             try:
                 product_selects.nth(1).select_option(
@@ -74,7 +139,6 @@ def run():
             except Exception:
                 product_selects.nth(1).select_option(index=1, force=True)
 
-        # الضغط على Continue
         print("3. الضغط على Continue...")
         time.sleep(1)
         continue_btn = page.locator(
@@ -83,7 +147,6 @@ def run():
         ).first
         continue_btn.click(force=True)
 
-        # الخطوة 3: صفحة Checkout
         print("4. الانتقال لصفحة Checkout...")
         page.wait_for_selector(
             "a:has-text('Checkout'), button:has-text('Checkout'), #checkout",
@@ -94,7 +157,6 @@ def run():
             "a:has-text('Checkout'), button:has-text('Checkout'), #checkout"
         ).first.click(force=True)
 
-        # الخطوة 4: تعبئة البيانات Personal Information
         print("5. تعبئة بيانات الحساب...")
         page.wait_for_selector(
             "input[name='firstname'], #inputFirstName", timeout=60000
@@ -105,7 +167,6 @@ def run():
         page.fill("input[name='email'], #inputEmail", email)
         page.fill("input[name='phonenumber'], #inputPhone", phone_number)
 
-        # توليد كلمة السر
         gen_btn = page.locator(
             "#generatePasswordButton, .generate-password,"
             " button:has-text('Generate Password')"
@@ -125,7 +186,6 @@ def run():
                 "input[name='password_confirm'], #inputNewPassword2", pwd
             )
 
-        # إتمام الطلب
         print("6. إتمام الطلب...")
         time.sleep(2)
         complete_btn = page.locator(
@@ -138,6 +198,16 @@ def run():
         print(f"✅ تم إرسال الطلب بنجاح للإيميل: {email}")
         browser.close()
 
+    # الخطوة 7: سحب رابط M3U من البريد
+    m3u_link = fetch_m3u_link_from_email(email)
+    
+    if m3u_link:
+        print(f"\n🚀 الرابط الذي تم جلبه جاهز للمرحلة القادمة:\n{m3u_link}\n")
+        # هنا سيتم إضافة كود المرحلة القادمة (إضافة الرابط في موقع التلفزيون)
+        return m3u_link
+    else:
+        print("⚠️ لم يتم العثور على الرابط.")
+        return None
 
 if __name__ == "__main__":
     run()
