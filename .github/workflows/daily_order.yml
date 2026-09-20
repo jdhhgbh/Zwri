@@ -2,8 +2,8 @@ name: Daily IPTV Order Automation
 
 on:
   schedule:
-    # 1:00 AM UTC يوافق 4:00 AM بتوقيت مكة
-    - cron: '0 1 * * *'
+    # 01:07 AM UTC = 04:07 AM بتوقيت السعودية
+    - cron: '7 1 * * *'
   workflow_dispatch:
 
 jobs:
